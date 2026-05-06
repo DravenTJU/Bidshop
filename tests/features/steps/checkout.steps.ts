@@ -97,7 +97,7 @@ Given('user A has {string} in cart and is on checkout while user B exhausts its 
     const apiA = authedContext(request, userA.token);
     const apiB = authedContext(request, userB.token);
 
-    await apiA.post(`${API_BASE}/cart/items`, { data: { productId, quantity: stock } });
+    await apiA.post(`${API_BASE}/cart/items`, { data: { productId, quantity: 1 } });
     await apiB.post(`${API_BASE}/cart/items`, { data: { productId, quantity: stock } });
 
     const orderRes = await apiB.post(`${API_BASE}/orders`, { data: { customer: makeCustomer() } });

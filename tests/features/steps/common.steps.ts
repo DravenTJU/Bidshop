@@ -79,6 +79,7 @@ Given('a visitor with a stale authentication token',
 
 // Used by: cart (CART-UI-006) after the cart page has already rendered as authenticated.
 Given('their authentication token becomes invalid', async ({ page }) => {
+  await page.getByTestId('cart-checkout').waitFor({ state: 'visible', timeout: 10000 });
   await page.evaluate(() => {
     localStorage.removeItem('bidshop.token');
   });

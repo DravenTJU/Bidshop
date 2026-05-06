@@ -13,6 +13,16 @@ This pipeline is designed as a **release-quality gate**, not a bare test runner.
 - **Debuggability**: publish JUnit results, Playwright HTML reports, traces, screenshots/videos, and service logs.
 - **Report accessibility**: upload the Playwright HTML report to Azure Blob Storage static website hosting so reviewers can open the report directly in a browser without downloading artifacts.
 
+### Example: pipeline overview and hosted Playwright report
+
+The following screenshot shows a successful Azure DevOps run with separated build (`backend_build`, `frontend_build`) and test (`api_tests`, `ui_tests`) jobs:
+
+![Azure DevOps pipeline: build and test jobs completed successfully](https://github.com/user-attachments/assets/fc5a40c9-37ed-4690-ad00-d98525de6dcf)
+
+The Playwright HTML report from a recent pipeline run is published to Blob static website hosting—for example build `12`, attempt `1`:
+
+- [Playwright HTML report (`12-attempt-1`)](https://bidshopreportsdraven.z8.web.core.windows.net/reports/12-attempt-1/index.html)
+
 ## Agent Pool and Parallel Execution
 
 The pipeline can run on either Microsoft-hosted agents or a self-hosted Azure DevOps agent pool. For this exercise, I used a manually configured **self-hosted Linux agent pool** because hosted parallelism may not be available by default for a new Azure DevOps organisation.

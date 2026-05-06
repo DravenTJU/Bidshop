@@ -14,6 +14,8 @@ The stack:
 
 See `CANDIDATE_INSTRUCTIONS.md` for the full exercise brief.
 
+Test-suite documentation: [`tests/README.md`](tests/README.md)
+
 ---
 
 ## 1. Prerequisites

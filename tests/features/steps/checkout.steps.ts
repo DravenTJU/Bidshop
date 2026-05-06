@@ -23,7 +23,7 @@ When('they fill in their delivery details', async ({ checkoutPage, scenarioConte
   const customer = scenarioContext.customer!;
   await checkoutPage.fillDelivery({
     address: customer.address,
-    city: customer.city,
+    city:    customer.city,
     postcode: customer.postcode,
   });
 });
@@ -38,20 +38,20 @@ When('they view the cart page', async ({ page }) => {
 
 Then('the name and email fields are pre-filled from registration',
   async ({ checkoutPage, scenarioContext }) => {
-    await expect(checkoutPage.nameField).toHaveValue(scenarioContext.userData!.user.name);
-    await expect(checkoutPage.emailField).toHaveValue(scenarioContext.userData!.user.email);
+    await expect(checkoutPage.form.name).toHaveValue(scenarioContext.userData!.user.name);
+    await expect(checkoutPage.form.email).toHaveValue(scenarioContext.userData!.user.email);
   }
 );
 
 Then('the order summary and pricing are visible', async ({ checkoutPage }) => {
-  await expect(checkoutPage.summary).toBeVisible();
-  await expect(checkoutPage.subtotal).toContainText('$');
-  await expect(checkoutPage.total).toContainText('$');
+  await expect(checkoutPage.orderSummary.root).toBeVisible();
+  await expect(checkoutPage.orderSummary.subtotal).toContainText('$');
+  await expect(checkoutPage.orderSummary.total).toContainText('$');
 });
 
 Then('no confirmation is shown and the URL stays {string}',
   async ({ page, checkoutPage }, url: string) => {
-    await expect(checkoutPage.confirmation).not.toBeVisible();
+    await expect(checkoutPage.confirmation.root).not.toBeVisible();
     await expect(page).toHaveURL(url);
   }
 );
@@ -59,24 +59,24 @@ Then('no confirmation is shown and the URL stays {string}',
 Then('the order is confirmed and the cart badge disappears',
   async ({ page, checkoutPage, cartPage }) => {
     await checkoutPage.submit();
-    await expect(checkoutPage.confirmation).toBeVisible({ timeout: 5000 });
+    await expect(checkoutPage.confirmation.root).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('heading', { name: 'Order confirmed' })).toBeVisible();
-    await expect(checkoutPage.orderId).toBeVisible();
-    const confirmedTotal = await checkoutPage.orderTotal.textContent();
+    await expect(checkoutPage.confirmation.orderId).toBeVisible();
+    const confirmedTotal = await checkoutPage.confirmation.total.textContent();
     expect(confirmedTotal).toMatch(/^\$\d+\.\d{2}$/);
-    await expect(cartPage.navCartCount).not.toBeVisible();
+    await expect(cartPage.nav.cartCount).not.toBeVisible();
   }
 );
 
 Then('the GST label is rendered', async ({ checkoutPage }) => {
-  await expect(checkoutPage.gstLabel).toBeVisible();
+  await expect(checkoutPage.orderSummary.gstLabel).toBeVisible();
 });
 
 Then('the GST amount matches 15% of the subtotal', async ({ cartPage }) => {
-  const subtotalText = await cartPage.subtotal.textContent();
-  const gstText = await cartPage.gst.textContent();
-  const subtotal = parseFloat(subtotalText!.replace('$', ''));
-  const gst = parseFloat(gstText!.replace('$', ''));
+  const subtotalText = await cartPage.summary.subtotal.textContent();
+  const gstText      = await cartPage.summary.gst.textContent();
+  const subtotal     = parseFloat(subtotalText!.replace('$', ''));
+  const gst          = parseFloat(gstText!.replace('$', ''));
   const expected15PctGst = parseFloat((subtotal * 0.15).toFixed(2));
   // This assertion FAILS because the cart API returns 12.5% GST — @fail tag is intentional
   expect(gst).toBeCloseTo(expected15PctGst, 2);
@@ -97,6 +97,7 @@ Given('user A has {string} in cart and is on checkout while user B exhausts its 
     const apiA = authedContext(request, userA.token);
     const apiB = authedContext(request, userB.token);
 
+    // User A only needs 1 unit in their cart; user B orders the entire remaining stock to exhaust it.
     await apiA.post(`${API_BASE}/cart/items`, { data: { productId, quantity: 1 } });
     await apiB.post(`${API_BASE}/cart/items`, { data: { productId, quantity: stock } });
 
@@ -116,7 +117,7 @@ Given('user A has {string} in cart and is on checkout while user B exhausts its 
 Given('they have filled in delivery details', async ({ checkoutPage }) => {
   await checkoutPage.fillDelivery({
     address: '12 Queen Street',
-    city: 'Auckland',
+    city:    'Auckland',
     postcode: '1010',
   });
 });
@@ -135,12 +136,12 @@ When('they submit the checkout form with valid delivery details',
   async ({ checkoutPage, scenarioContext }) => {
     const user = scenarioContext.userData?.user;
     if (user) {
-      await checkoutPage.nameField.fill(user.name);
-      await checkoutPage.emailField.fill(user.email);
+      await checkoutPage.form.name.fill(user.name);
+      await checkoutPage.form.email.fill(user.email);
     }
     await checkoutPage.fillDelivery({
       address: '12 Queen Street',
-      city: 'Auckland',
+      city:    'Auckland',
       postcode: '1010',
     });
     await checkoutPage.submit();
@@ -149,7 +150,8 @@ When('they submit the checkout form with valid delivery details',
 
 Then('only one order confirmation is shown',
   async ({ request, checkoutPage, scenarioContext }) => {
-    await expect(checkoutPage.confirmation).toBeVisible({ timeout: 5000 });
+    await expect(checkoutPage.confirmation.root).toBeVisible({ timeout: 5000 });
+    // @fail: double-submit currently creates 2 orders
     const api = authedContext(request, scenarioContext.userData!.token);
     const res = await api.get(`${API_BASE}/orders`);
     const body = await res.json();
@@ -159,18 +161,18 @@ Then('only one order confirmation is shown',
 );
 
 Then('the checkout form is shown despite the invalid token', async ({ checkoutPage }) => {
-  await expect(checkoutPage.summary).toBeVisible();
-  await expect(checkoutPage.nameField).toBeVisible();
+  await expect(checkoutPage.orderSummary.root).toBeVisible();
+  await expect(checkoutPage.form.name).toBeVisible();
 });
 
 Then('an authorization error {string} is shown', async ({ page, checkoutPage }, message: string) => {
-  await expect(checkoutPage.confirmation).not.toBeVisible();
-  await expect(page.getByTestId('checkout-error')).toHaveText(message);
+  await expect(checkoutPage.confirmation.root).not.toBeVisible();
+  await expect(checkoutPage.form.error).toHaveText(message);
 });
 
 Then('a stock-unavailable error is shown instead of a confirmation',
-  async ({ page, checkoutPage }) => {
-    await expect(checkoutPage.confirmation).not.toBeVisible();
-    await expect(page.getByTestId('checkout-error')).toBeVisible();
+  async ({ checkoutPage }) => {
+    await expect(checkoutPage.confirmation.root).not.toBeVisible();
+    await expect(checkoutPage.form.error).toBeVisible();
   }
 );

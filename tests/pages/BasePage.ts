@@ -1,25 +1,19 @@
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 
 export class BasePage {
-  constructor(protected page: Page) {}
+  readonly nav: {
+    userName: Locator;
+    cartCount: Locator;
+    cart: Locator;
+    logout: Locator;
+  };
 
-  async goto(path: string) {
-    await this.page.goto(path);
-  }
-
-  get navUserName() {
-    return this.page.getByTestId('nav-user-name');
-  }
-
-  get navCartCount() {
-    return this.page.getByTestId('nav-cart-count');
-  }
-
-  get navCart() {
-    return this.page.getByTestId('nav-cart');
-  }
-
-  get navLogout() {
-    return this.page.getByTestId('nav-logout');
+  constructor(protected page: Page) {
+    this.nav = {
+      userName: page.getByTestId('nav-user-name'),
+      cartCount: page.getByTestId('nav-cart-count'),
+      cart: page.getByTestId('nav-cart'),
+      logout: page.getByTestId('nav-logout'),
+    };
   }
 }

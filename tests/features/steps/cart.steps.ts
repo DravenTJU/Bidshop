@@ -22,24 +22,24 @@ Then('a login-required prompt is shown with a login link', async ({ cartPage }) 
 });
 
 Then('the nav badge shows {string}', async ({ cartPage }, count: string) => {
-  await expect(cartPage.navCartCount).toHaveText(count);
+  await expect(cartPage.nav.cartCount).toHaveText(count);
 });
 
 Then('the cart contains product {string}', async ({ cartPage }, productId: string) => {
   await cartPage.goToCart();
-  await expect(cartPage.cartRow(productId)).toBeVisible();
+  await expect(cartPage.item(productId).row).toBeVisible();
 });
 
 Then('the line total for {string} is {string}',
   async ({ cartPage }, productId: string, total: string) => {
-    await expect(cartPage.lineTotal(productId)).toHaveText(total, { timeout: 3000 });
+    await expect(cartPage.item(productId).lineTotal).toHaveText(total, { timeout: 3000 });
   }
 );
 
 Then('cart totals are non-zero', async ({ cartPage }) => {
-  const subtotalText = await cartPage.subtotal.textContent();
+  const subtotalText = await cartPage.summary.subtotal.textContent();
   expect(parseFloat(subtotalText!.replace('$', ''))).toBeGreaterThan(0);
-  const totalText = await cartPage.total.textContent();
+  const totalText = await cartPage.summary.total.textContent();
   expect(parseFloat(totalText!.replace('$', ''))).toBeGreaterThan(0);
 });
 
@@ -48,7 +48,7 @@ Then('the empty cart state is shown', async ({ cartPage }) => {
 });
 
 Then('the nav cart badge disappears', async ({ cartPage }) => {
-  await expect(cartPage.navCartCount).not.toBeVisible();
+  await expect(cartPage.nav.cartCount).not.toBeVisible();
 });
 
 When('they navigate to the cart page', async ({ cartPage }) => {

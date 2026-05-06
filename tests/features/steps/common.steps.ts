@@ -23,9 +23,9 @@ Given('an authenticated user with product {string} in the cart',
     const result = await seedAuth(page, request);
     scenarioContext.userData = result;
     // Fail fast with assertion (not timeout) if the button is disabled (e.g. stock exhausted)
-    await expect(cataloguePage.addButton(productId)).toBeEnabled({ timeout: 3000 });
+    await expect(cataloguePage.product(productId).addButton).toBeEnabled({ timeout: 3000 });
     await cataloguePage.addProduct(productId);
-    await expect(cartPage.navCartCount).toBeVisible();
+    await expect(cartPage.nav.cartCount).toBeVisible();
     await cartPage.goToCart();
   }
 );
@@ -36,9 +36,9 @@ Given('an authenticated user with product {string} in the cart at unit price {st
     const result = await seedAuth(page, request);
     scenarioContext.userData = result;
     await cataloguePage.addProduct(productId);
-    await expect(cartPage.navCartCount).toBeVisible();
+    await expect(cartPage.nav.cartCount).toBeVisible();
     await cartPage.goToCart();
-    await expect(cartPage.lineTotal(productId)).toHaveText(unitPrice);
+    await expect(cartPage.item(productId).lineTotal).toHaveText(unitPrice);
   }
 );
 
@@ -48,8 +48,8 @@ Given('an authenticated user at checkout with product {string}',
     const result = await seedAuth(page, request);
     scenarioContext.userData = result;
     await cataloguePage.addProduct(productId);
-    await expect(cataloguePage.addMessage(productId)).toContainText('Added to cart');
-    await expect(cartPage.navCartCount).toBeVisible();
+    await expect(cataloguePage.product(productId).addMessage).toContainText('Added to cart');
+    await expect(cartPage.nav.cartCount).toBeVisible();
     await cartPage.proceedToCheckout();
     await expect(page).toHaveURL('/checkout');
   }
@@ -58,9 +58,9 @@ Given('an authenticated user at checkout with product {string}',
 // Used by: cart (CART-UI-002), checkout golden path (CHECKOUT-UI-004)
 When('they add product {string} to the cart',
   async ({ cataloguePage }, productId: string) => {
-    await expect(cataloguePage.addButton(productId)).toBeVisible();
+    await expect(cataloguePage.product(productId).addButton).toBeVisible();
     await cataloguePage.addProduct(productId);
-    await expect(cataloguePage.addMessage(productId)).toContainText('Added to cart');
+    await expect(cataloguePage.product(productId).addMessage).toContainText('Added to cart');
   }
 );
 

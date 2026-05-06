@@ -1,56 +1,48 @@
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 export class CataloguePage extends BasePage {
+  readonly filter: {
+    search: Locator;
+    category: Locator;
+    summary: Locator;
+    emptyState: Locator;
+  };
+
   constructor(page: Page) {
     super(page);
+    this.filter = {
+      search:     page.getByTestId('filter-search'),
+      category:   page.locator('[data-testid=filter-category]'),
+      summary:    page.getByTestId('filter-summary'),
+      emptyState: page.getByTestId('empty-state'),
+    };
   }
 
-  async goToCatalogue() {
-    await this.page.goto('/');
-  }
+  async goToCatalogue() { await this.page.goto('/'); }
 
   async search(term: string) {
-    await this.page.getByTestId('filter-search').fill(term);
+    await this.filter.search.fill(term);
   }
 
   async filterByCategory(category: string) {
-    await this.page.selectOption('[data-testid=filter-category]', category);
+    await this.filter.category.selectOption(category);
   }
 
   async addProduct(productId: string) {
-    await this.page.getByTestId(`product-add-${productId}`).click();
+    await this.product(productId).addButton.click();
   }
 
-  filterSummary() {
-    return this.page.getByTestId('filter-summary');
+  /** All locators scoped to a single product card — computed on call, no DOM touch. */
+  product(id: string) {
+    return {
+      loginCta:  this.page.getByTestId(`product-login-${id}`),
+      addButton: this.page.getByTestId(`product-add-${id}`),
+      addMessage: this.page.getByTestId(`product-message-${id}`),
+      stockLabel: this.page.getByTestId(`product-stock-${id}`),
+    };
   }
 
-  emptyState() {
-    return this.page.getByTestId('empty-state');
-  }
-
-  productLoginCta(productId: string) {
-    return this.page.getByTestId(`product-login-${productId}`);
-  }
-
-  addButton(productId: string) {
-    return this.page.getByTestId(`product-add-${productId}`);
-  }
-
-  addMessage(productId: string) {
-    return this.page.getByTestId(`product-message-${productId}`);
-  }
-
-  stockLabel(productId: string) {
-    return this.page.getByTestId(`product-stock-${productId}`);
-  }
-
-  allProductCategories() {
-    return this.page.locator('[data-testid^="product-category-"]');
-  }
-
-  allProductNames() {
-    return this.page.locator('[data-testid^="product-name-"]');
-  }
+  allProductNames()      { return this.page.locator('[data-testid^="product-name-"]'); }
+  allProductCategories() { return this.page.locator('[data-testid^="product-category-"]'); }
 }

@@ -1,58 +1,52 @@
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 export class CartPage extends BasePage {
+  readonly summary: {
+    subtotal: Locator;
+    gst: Locator;
+    total: Locator;
+  };
+  readonly emptyState: Locator;
+  readonly loginRequired: Locator;
+  readonly checkoutButton: Locator;
+
   constructor(page: Page) {
     super(page);
+    this.summary = {
+      subtotal: page.getByTestId('cart-subtotal'),
+      gst:      page.getByTestId('cart-gst'),
+      total:    page.getByTestId('cart-total'),
+    };
+    this.emptyState     = page.getByTestId('cart-empty');
+    this.loginRequired  = page.getByTestId('cart-login-required');
+    this.checkoutButton = page.getByTestId('cart-checkout');
   }
 
-  async goToCart() {
-    await this.page.goto('/cart');
-  }
+  async goToCart() { await this.page.goto('/cart'); }
 
   async proceedToCheckout() {
-    await this.page.getByTestId('nav-cart').click();
-    await this.page.getByTestId('cart-checkout').click();
+    await this.nav.cart.click();
+    await this.checkoutButton.click();
+  }
+
+  /** All locators scoped to a single cart line — computed on call, no DOM touch. */
+  item(productId: string) {
+    return {
+      row:       this.page.getByTestId(`cart-row-${productId}`),
+      qty:       this.page.getByTestId(`cart-qty-${productId}`),
+      lineTotal: this.page.getByTestId(`cart-line-total-${productId}`),
+      remove:    this.page.getByTestId(`cart-remove-${productId}`),
+    };
   }
 
   async setQuantity(productId: string, qty: number) {
-    await this.page.getByTestId(`cart-qty-${productId}`).fill(String(qty));
-    await this.page.getByTestId(`cart-qty-${productId}`).press('Tab');
+    const { qty: input } = this.item(productId);
+    await input.fill(String(qty));
+    await input.press('Tab');
   }
 
   async removeItem(productId: string) {
-    await this.page.getByTestId(`cart-remove-${productId}`).click();
-  }
-
-  cartRow(productId: string) {
-    return this.page.getByTestId(`cart-row-${productId}`);
-  }
-
-  lineTotal(productId: string) {
-    return this.page.getByTestId(`cart-line-total-${productId}`);
-  }
-
-  get subtotal() {
-    return this.page.getByTestId('cart-subtotal');
-  }
-
-  get total() {
-    return this.page.getByTestId('cart-total');
-  }
-
-  get gst() {
-    return this.page.getByTestId('cart-gst');
-  }
-
-  get emptyState() {
-    return this.page.getByTestId('cart-empty');
-  }
-
-  get loginRequired() {
-    return this.page.getByTestId('cart-login-required');
-  }
-
-  get checkoutButton() {
-    return this.page.getByTestId('cart-checkout');
+    await this.item(productId).remove.click();
   }
 }

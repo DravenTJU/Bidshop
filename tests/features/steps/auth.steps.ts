@@ -12,7 +12,7 @@ Given('a user who has just registered', async ({ authPage, scenarioContext }) =>
   scenarioContext.userData = { token: '', user: { id: '', email: user.email, name: user.name } };
   await authPage.goToRegister();
   await authPage.register(user.name, user.email, user.password);
-  await expect(authPage.navUserName).toBeVisible();
+  await expect(authPage.nav.userName).toBeVisible();
 });
 
 Given('a user already registered via API', async ({ request, scenarioContext }) => {
@@ -65,24 +65,24 @@ Then('they land on the shop at {string} and the navbar shows their first name',
   async ({ page, authPage, scenarioContext }, url: string) => {
     await expect(page).toHaveURL(url);
     const firstName = scenarioContext.userData!.user.name.split(' ')[0];
-    await expect(authPage.navUserName).toContainText(firstName);
+    await expect(authPage.nav.userName).toContainText(firstName);
   }
 );
 
 Then('they remain authenticated with their name and logout link visible',
   async ({ authPage }) => {
-    await expect(authPage.navUserName).toBeVisible();
-    await expect(authPage.navLogout).toBeVisible();
+    await expect(authPage.nav.userName).toBeVisible();
+    await expect(authPage.nav.logout).toBeVisible();
   }
 );
 
 Then('a register-error message is shown', async ({ authPage }) => {
-  await expect(authPage.registerError).toBeVisible();
+  await expect(authPage.registerForm.error).toBeVisible();
 });
 
 Then('a login-error is shown and the URL stays {string}',
   async ({ page, authPage }, url: string) => {
-    await expect(authPage.loginError).toBeVisible();
+    await expect(authPage.loginForm.error).toBeVisible();
     await expect(page).toHaveURL(url);
   }
 );
@@ -91,7 +91,7 @@ Then('they land on the shop at {string} with their name in the navbar',
   async ({ page, authPage, scenarioContext }, url: string) => {
     await expect(page).toHaveURL(url);
     const firstName = scenarioContext.userData!.user.name.split(' ')[0];
-    await expect(authPage.navUserName).toContainText(firstName);
+    await expect(authPage.nav.userName).toContainText(firstName);
   }
 );
 

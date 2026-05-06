@@ -1,0 +1,345 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  name: Default
+
+variables:
+  nodeVersion: '20.x'
+  API_BASE_URL: 'http://localhost:4000'
+  UI_BASE_URL: 'http://localhost:5173'
+
+stages:
+  - stage: quality_gate
+    displayName: Quality gate
+    jobs:
+      - job: backend_build
+        displayName: Build backend
+        timeoutInMinutes: 15
+
+        steps:
+          - checkout: self
+
+          - task: UseNode@1
+            displayName: Use Node.js $(nodeVersion)
+            inputs:
+              version: $(nodeVersion)
+
+          - script: npm ci
+            displayName: Install backend dependencies
+            workingDirectory: backend
+
+          - script: npm run typecheck
+            displayName: Typecheck backend
+            workingDirectory: backend
+
+          - script: npm run build
+            displayName: Build backend
+            workingDirectory: backend
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish backend build artifact
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/backend/dist'
+              artifact: backend-dist
+              publishLocation: pipeline
+
+      - job: frontend_build
+        displayName: Build frontend
+        timeoutInMinutes: 15
+
+        steps:
+          - checkout: self
+
+          - task: UseNode@1
+            displayName: Use Node.js $(nodeVersion)
+            inputs:
+              version: $(nodeVersion)
+
+          - script: npm ci
+            displayName: Install frontend dependencies
+            workingDirectory: frontend
+
+          - script: npm run typecheck
+            displayName: Typecheck frontend
+            workingDirectory: frontend
+
+          - script: npm run build
+            displayName: Build frontend
+            workingDirectory: frontend
+            env:
+              VITE_API_BASE_URL: $(API_BASE_URL)
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish frontend build artifact
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/frontend/dist'
+              artifact: frontend-dist
+              publishLocation: pipeline
+
+      - job: api_tests
+        displayName: Run API tests
+        dependsOn: backend_build
+        timeoutInMinutes: 30
+
+        steps:
+          - checkout: self
+
+          - task: UseNode@1
+            displayName: Use Node.js $(nodeVersion)
+            inputs:
+              version: $(nodeVersion)
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download backend build artifact
+            inputs:
+              buildType: current
+              artifactName: backend-dist
+              targetPath: '$(Build.SourcesDirectory)/backend/dist'
+
+          - script: npm ci
+            displayName: Install backend dependencies
+            workingDirectory: backend
+
+          - script: npm ci
+            displayName: Install test dependencies
+            workingDirectory: tests
+
+          - script: |
+              set -euo pipefail
+
+              mkdir -p "$(Build.SourcesDirectory)/ci-logs"
+
+              cd "$(Build.SourcesDirectory)/backend"
+              npm start > "$(Build.SourcesDirectory)/ci-logs/backend.log" 2>&1 &
+              echo $! > "$(Build.SourcesDirectory)/ci-logs/backend.pid"
+            displayName: Start backend service
+
+          - script: |
+              set -euo pipefail
+
+              for attempt in {1..60}; do
+                if curl -fsS "$(API_BASE_URL)/health" >/dev/null; then
+                  echo "Bidshop API is ready."
+                  exit 0
+                fi
+                sleep 2
+              done
+
+              echo "API failed to become ready."
+              echo "--- backend.log ---"
+              cat "$(Build.SourcesDirectory)/ci-logs/backend.log" || true
+              exit 1
+            displayName: Wait for API
+
+          - script: npm run test:api
+            displayName: Run API tests
+            workingDirectory: tests
+            env:
+              CI: 'true'
+              API_BASE_URL: $(API_BASE_URL)
+              UI_BASE_URL: $(UI_BASE_URL)
+
+          - task: PublishTestResults@2
+            displayName: Publish API JUnit test results
+            condition: always()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: '$(Build.SourcesDirectory)/tests/test-results/junit.xml'
+              testRunTitle: 'Bidshop API tests - $(Build.SourceBranchName)'
+              mergeTestResults: true
+              failTaskOnFailedTests: true
+
+          - script: |
+              if [ -f "$(Build.SourcesDirectory)/ci-logs/backend.pid" ]; then
+                kill "$(cat "$(Build.SourcesDirectory)/ci-logs/backend.pid")" || true
+              fi
+            displayName: Stop backend service
+            condition: always()
+
+          - script: |
+              mkdir -p "$(Build.SourcesDirectory)/tests/test-results"
+              mkdir -p "$(Build.SourcesDirectory)/ci-logs"
+            displayName: Prepare API artifact directories
+            condition: always()
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish API test results and traces
+            condition: always()
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/tests/test-results'
+              artifact: 'api-test-results-attempt-$(System.JobAttempt)'
+              publishLocation: pipeline
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish API service logs
+            condition: always()
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/ci-logs'
+              artifact: 'api-service-logs-attempt-$(System.JobAttempt)'
+              publishLocation: pipeline
+
+      - job: ui_tests
+        displayName: Run UI tests
+        dependsOn:
+          - backend_build
+          - frontend_build
+        timeoutInMinutes: 30
+
+        steps:
+          - checkout: self
+
+          - task: UseNode@1
+            displayName: Use Node.js $(nodeVersion)
+            inputs:
+              version: $(nodeVersion)
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download backend build artifact
+            inputs:
+              buildType: current
+              artifactName: backend-dist
+              targetPath: '$(Build.SourcesDirectory)/backend/dist'
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download frontend build artifact
+            inputs:
+              buildType: current
+              artifactName: frontend-dist
+              targetPath: '$(Build.SourcesDirectory)/frontend/dist'
+
+          - script: npm ci
+            displayName: Install backend dependencies
+            workingDirectory: backend
+
+          - script: npm ci
+            displayName: Install frontend dependencies
+            workingDirectory: frontend
+
+          - script: npm ci
+            displayName: Install test dependencies
+            workingDirectory: tests
+
+          - script: npx playwright install chromium
+            displayName: Install Playwright Chromium
+            workingDirectory: tests
+
+          - script: |
+              set -euo pipefail
+
+              mkdir -p "$(Build.SourcesDirectory)/ci-logs"
+
+              cd "$(Build.SourcesDirectory)/backend"
+              npm start > "$(Build.SourcesDirectory)/ci-logs/backend.log" 2>&1 &
+              echo $! > "$(Build.SourcesDirectory)/ci-logs/backend.pid"
+
+              cd "$(Build.SourcesDirectory)/frontend"
+              npm run preview -- --host 0.0.0.0 --port 5173 > "$(Build.SourcesDirectory)/ci-logs/frontend.log" 2>&1 &
+              echo $! > "$(Build.SourcesDirectory)/ci-logs/frontend.pid"
+            displayName: Start local services
+
+          - script: |
+              set -euo pipefail
+
+              for attempt in {1..60}; do
+                if curl -fsS "$(API_BASE_URL)/health" >/dev/null && curl -fsS "$(UI_BASE_URL)" >/dev/null; then
+                  echo "Bidshop services are ready."
+                  exit 0
+                fi
+                sleep 2
+              done
+
+              echo "Services failed to become ready."
+              echo "--- backend.log ---"
+              cat "$(Build.SourcesDirectory)/ci-logs/backend.log" || true
+              echo "--- frontend.log ---"
+              cat "$(Build.SourcesDirectory)/ci-logs/frontend.log" || true
+              exit 1
+            displayName: Wait for API and UI
+
+          - script: |
+              npx bddgen
+              npx playwright test --project=ui --project=ui-mobile
+            displayName: Run BDD UI and mobile tests
+            workingDirectory: tests
+            env:
+              CI: 'true'
+              API_BASE_URL: $(API_BASE_URL)
+              UI_BASE_URL: $(UI_BASE_URL)
+
+          - task: PublishTestResults@2
+            displayName: Publish BDD UI JUnit test results
+            condition: always()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: '$(Build.SourcesDirectory)/tests/test-results/junit.xml'
+              testRunTitle: 'Bidshop BDD UI and mobile tests - $(Build.SourceBranchName)'
+              mergeTestResults: true
+              failTaskOnFailedTests: true
+
+          - script: |
+              if [ -f "$(Build.SourcesDirectory)/ci-logs/backend.pid" ]; then
+                kill "$(cat "$(Build.SourcesDirectory)/ci-logs/backend.pid")" || true
+              fi
+
+              if [ -f "$(Build.SourcesDirectory)/ci-logs/frontend.pid" ]; then
+                kill "$(cat "$(Build.SourcesDirectory)/ci-logs/frontend.pid")" || true
+              fi
+            displayName: Stop local services
+            condition: always()
+
+          - script: |
+              mkdir -p "$(Build.SourcesDirectory)/tests/playwright-report"
+              mkdir -p "$(Build.SourcesDirectory)/tests/test-results"
+              mkdir -p "$(Build.SourcesDirectory)/ci-logs"
+            displayName: Prepare artifact directories
+            condition: always()
+
+          - script: |
+              set -euo pipefail
+
+              REPORT_PATH="reports/$(Build.BuildId)-attempt-$(System.JobAttempt)"
+
+              az storage blob upload-batch \
+                --account-name "$(AZURE_STORAGE_ACCOUNT)" \
+                --account-key "$(AZURE_STORAGE_KEY)" \
+                --destination '$web' \
+                --destination-path "$REPORT_PATH" \
+                --source "$(Build.SourcesDirectory)/tests/playwright-report" \
+                --overwrite true
+
+              echo "Playwright HTML report:"
+              echo "$(AZURE_STATIC_SITE_URL)/$REPORT_PATH/index.html"
+            displayName: Publish Playwright report to Azure Blob Static Website
+            condition: always()
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish Playwright report
+            condition: always()
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/tests/playwright-report'
+              artifact: 'playwright-report-attempt-$(System.JobAttempt)'
+              publishLocation: pipeline
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish test results and traces
+            condition: always()
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/tests/test-results'
+              artifact: 'ui-playwright-test-results-attempt-$(System.JobAttempt)'
+              publishLocation: pipeline
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish service logs
+            condition: always()
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/ci-logs'
+              artifact: 'ui-service-logs-attempt-$(System.JobAttempt)'
+              publishLocation: pipeline

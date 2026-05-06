@@ -81,6 +81,7 @@ export default defineConfig({
       }),
       use: {
         ...devices['iPhone 13'],
+        defaultBrowserType: 'chromium',
         baseURL: UI_BASE_URL,
         trace: 'retain-on-failure',
         video: 'retain-on-failure',

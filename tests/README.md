@@ -148,6 +148,12 @@ Azure DevOps pipeline details, quality gate behaviour, published artifacts, and 
 
 ---
 
+## Bonus task response (discount feature plan)
+
+To address the bonus requirement in `CANDIDATE_INSTRUCTIONS.md` ("10% discount for orders over NZD 100"), the full clarification notes, API/UI/data-model impact analysis, and test strategy are documented in **[docs/DISCOUNT.md](docs/DISCOUNT.md)**.
+
+---
+
 ## AI tooling
 
 The suite was built with multiple AI agents in parallel, each picked for what it does best. All generated output was reviewed line-by-line, aligned with the real API contract, and hardened with explicit types and edge-case handling before commit.
